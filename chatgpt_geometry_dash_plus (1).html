@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ChatGPT Geometry Dash</title>
+<style>
+*{box-sizing:border-box} body{margin:0;background:#080d20;color:#fff;font-family:Arial,sans-serif;overflow:hidden;touch-action:manipulation}
+#app{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:14px}
+.panel{width:min(760px,100%);background:linear-gradient(145deg,#151e3d,#0b1025);border:2px solid #344b83;border-radius:22px;padding:20px;box-shadow:0 12px 50px #0008;text-align:center}
+h1{font-size:clamp(25px,6vw,42px);margin:4px 0 8px;color:#72eaff;text-shadow:0 0 16px #26bce8}
+p{color:#c7d5f7}.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+button{border:0;border-radius:12px;padding:13px 12px;background:#2463b8;color:white;font-weight:bold;font-size:16px;cursor:pointer;box-shadow:0 4px 0 #12396e}
+button:active{transform:translateY(2px);box-shadow:0 2px 0 #12396e}
+.level{min-height:94px;background:linear-gradient(145deg,#1c8dba,#2745a0)}
+.level small{display:block;font-weight:normal;margin-top:7px;color:#e4faff}
+#gameWrap{display:none;width:min(900px,100%);text-align:center}
+#hud{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 9px}
+#stage{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#0b1636;border:2px solid #4c75c7;border-radius:14px;touch-action: none}
+.controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.controls button{min-width:110px}
+#jump{background:#12a6a0;box-shadow:0 4px 0 #08736f;min-width:150px}
+#menu{background:#48516d;box-shadow:0 4px 0 #30384f}
+#custom{margin-top:16px;padding-top:12px;border-top:1px solid #344b83}
+input[type=color]{width:54px;height:38px;border:0;background:none;vertical-align:middle}
+#cubePreview{display:inline-block;width:25px;height:25px;background:#21e6ff;border:3px solid #fff;border-radius:4px;vertical-align:middle;margin:0 8px}
+#message{min-height:24px;color:#ffe78b;margin-top:8px}
+@media(max-width:480px){.panel{padding:14px}.levels{gap:6px}.level{font-size:13px;padding:10px 4px}.level small{font-size:11px}}
+</style>
+</head>
+<body>
+<div id="app">
+ <section class="panel" id="menuPanel">
+  <h1>CHATGPT GEOMETRY DASH</h1>
+  <p>Обери один із трьох рівнів. Кожен має власну випадкову трасу!</p>
+  <div class="levels">
+   <button class="level" onclick="startLevel(0)">Рівень 1<small>Легкий • Блакитний світ</small></button>
+   <button class="level" onclick="startLevel(1)">Рівень 2<small>Середній • Фіолетова ніч</small></button>
+   <button class="level" onclick="startLevel(2)">Рівень 3<small>Складний • Вогняний світ</small></button>
+  </div>
+  <div id="custom">
+   <h3>Редагування кубика</h3>
+   <span id="cubePreview"></span><label for="cubeColor">Колір кубика:</label>
+   <input id="cubeColor" type="color" value="#21e6ff" oninput="setCubeColor(this.value)">
+  </div>
+  <div id="message">Натисни на рівень, щоб почати.</div>
+ </section>
+ <section id="gameWrap">
+  <div id="hud"><strong id="levelName">Рівень 1</strong><span id="score">0 м</span><span id="best">Рекорд: 0</span></div>
+  <canvas id="stage" width="900" height="506"></canvas>
+  <div class="controls">
+   <button id="jump" onclick="jump()">СТРИБНУТИ</button>
+   <button id="menu" onclick="backToMenu()">МЕНЮ</button>
+  </div>
+  <p>Стрибай натисканням на екран або кнопкою. На комп’ютері — пробіл чи стрілка вгору.</p>
+ </section>
+</div>
+<script>
+const canvas=document.getElementById('stage'),ctx=canvas.getContext('2d');
+let cubeColor='#21e6ff',running=false,raf=0,player,obstacles=[],speed=5,score=0,best=0,ground=420,level=0,frame=0,world='#0b1636',accent='#25d9ff',spawn=0;
+const configs=[
+ {name:'Блакитний старт',speed:4.8,world:'#092c48',accent:'#28dcff',gap:245},
+ {name:'Фіолетова ніч',speed:6,world:'#21143e',accent:'#d77aff',gap:205},
+ {name:'Вогняний ривок',speed:7.2,world:'#431b27',accent:'#ff9a45',gap:178}
+];
+function setCubeColor(c){cubeColor=c;document.getElementById('cubePreview').style.background=c}
+function startLevel(n){
+ level=n;const c=configs[n];speed=c.speed;world=c.world;accent=c.accent;
+ document.getElementById('menuPanel').style.display='none';document.getElementById('gameWrap').style.display='block';
+ document.getElementById('levelName').textContent='Рівень '+(n+1)+': '+c.name;
+ score=0;frame=0;spawn=0;obstacles=[];player={x:120,y:ground-42,size:42,vy:0,onGround:true};
+ running=true;cancelAnimationFrame(raf);loop();
+}
+function backToMenu(){running=false;cancelAnimationFrame(raf);document.getElementById('gameWrap').style.display='none';document.getElementById('menuPanel').style.display='block';document.getElementById('message').textContent='Обери рівень або зміни колір кубика.'}
+function jump(){if(!running)return;if(player.onGround){player.vy=-15.5;player.onGround=false}}
+function loop(){if(!running)return;update();draw();raf=requestAnimationFrame(loop)}
+function update(){
+ frame++;player.vy+=0.78;player.y+=player.vy;
+ if(player.y+player.size>=ground){player.y=ground-player.size;player.vy=0;player.onGround=true}
+ spawn--;if(spawn<=0){let h=34+Math.random()*24,w=30+Math.random()*12;obstacles.push({x:940,w,h});spawn=configs[level].gap+Math.random()*100}
+ obstacles.forEach(o=>o.x-=speed);obstacles=obstacles.filter(o=>o.x+o.w>0);
+ for(const o of obstacles){if(player.x+player.size-7>o.x&&player.x+7<o.x+o.w&&player.y+player.size-5>ground-o.h){running=false;document.getElementById('message').textContent='Ой! Зіткнення. Натисни рівень, щоб спробувати ще раз.';document.getElementById('gameWrap').style.display='none';document.getElementById('menuPanel').style.display='block';return}}
+ score+=speed/60;document.getElementById('score').textContent=Math.floor(score)+' м';
+ best=Math.max(best,Math.floor(score));document.getElementById('best').textContent='Рекорд: '+best;
+}
+function draw(){
+ ctx.clearRect(0,0,900,506);ctx.fillStyle=world;ctx.fillRect(0,0,900,506);
+ ctx.globalAlpha=.18;ctx.fillStyle=accent;for(let i=0;i<14;i++){let x=(i*83-frame*0.35)%900;if(x<0)x+=900;ctx.fillRect(x,45+(i%4)*58,3,3)}ctx.globalAlpha=1;
+ ctx.fillStyle='#15284b';ctx.fillRect(0,ground,900,86);ctx.fillStyle=accent;ctx.fillRect(0,ground,900,5);
+ for(const o of obstacles){ctx.fillStyle=accent;ctx.beginPath();ctx.moveTo(o.x,ground);ctx.lineTo(o.x+o.w/2,ground-o.h);ctx.lineTo(o.x+o.w,ground);ctx.closePath();ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke()}
+ ctx.save();ctx.translate(player.x+player.size/2,player.y+player.size/2);ctx.rotate(player.onGround?0:Math.min(Math.PI/2,Math.max(-Math.PI/2,-player.vy*.035)));ctx.fillStyle=cubeColor;ctx.fillRect(-21,-21,42,42);ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.strokeRect(-21,-21,42,42);ctx.fillStyle='#092039';ctx.fillRect(-11,-7,6,6);ctx.fillRect(5,-7,6,6);ctx.restore();
+}
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();jump()});
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();jump()}});
+</script>
+</body>
+</html>
